@@ -39,7 +39,7 @@ public class iDFont {
         STBTTBakedChar.Buffer cdata = STBTTBakedChar.malloc(255);
 
         try {
-            ByteBuffer ttf = ioResourceToByteBuffer("arial.ttf", 160 * 1024);
+            ByteBuffer ttf = ioResourceToByteBuffer("IMMORTAL.ttf", 160 * 1024);
 
             ByteBuffer bitmap = BufferUtils.createByteBuffer(BITMAP_W * BITMAP_H);
             stbtt_BakeFontBitmap(ttf, fontSize, bitmap, BITMAP_W, BITMAP_H, 32, cdata);
