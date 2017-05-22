@@ -30,6 +30,7 @@ public class EnemyCharacter extends EntityCharacter {
 
     double damageMod = 0;
     double healthMod = 0;
+    float size = 1.0f;
 
     public EnemyCharacter(int level, float itemlevel, Vector2d position, String name, Classification classification) {
         super(level, itemlevel, position, name, true);
@@ -117,5 +118,9 @@ public class EnemyCharacter extends EntityCharacter {
             this.ai();
         }
         return !this.isDead();
+    }
+
+    public float getSize() {
+        return size;
     }
 }

@@ -203,11 +203,56 @@ public class IdleDungeoneer {
     private void gameDrawRectangle(float x, float y, int width, int height) {
         glDisable(GL_TEXTURE_2D);
         glBegin(GL_QUADS);
-        glVertex2f(x, y);
-        glVertex2f(x + width, y);
-        glVertex2f(x + width, y + height);
-        glVertex2f(x, y + height);
+        glVertex2f(x - width / 2, y - height / 2);
+        glVertex2f(x + width / 2, y - height / 2);
+        glVertex2f(x + width / 2, y + height / 2);
+        glVertex2f(x - width / 2, y + height / 2);
         glEnd();
+        glEnable(GL_TEXTURE_2D);
+    }
+
+    public void generateNavMesh() {
+    }
+
+    void drawCircle(float cx, float cy, float r, int num_segments) {
+        glDisable(GL_TEXTURE_2D);
+        float theta = 2f * 3.1415926f / (float) num_segments;
+        float tangetial_factor = (float) Math.tan(theta);//calculate the tangential factor
+
+        float radial_factor = (float) Math.cos(theta);//calculate the radial factor
+
+        float x = r;//we start at angle = 0
+
+        float y = 0;
+
+        //glBegin(GL_LINE_LOOP);
+        for (int ii = 0; ii < num_segments; ii++) {
+            glBegin(GL_TRIANGLES);
+            glVertex2f(x + cx, y + cy);//output vertex
+
+            //calculate the tangential vector
+            //remember, the radial vector is (x, y)
+            //to get the tangential vector we flip those coordinates and negate one of them
+
+            float tx = -y;
+            float ty = x;
+
+            //add the tangential vector
+
+            x += tx * tangetial_factor;
+            y += ty * tangetial_factor;
+
+            //correct using the radial factor
+
+            x *= radial_factor;
+            y *= radial_factor;
+
+            glVertex2f(x + cx, y + cy);
+            glVertex2f(cx, cy);
+
+            glEnd();
+        }
+        //glEnd();
         glEnable(GL_TEXTURE_2D);
     }
 
@@ -244,12 +289,14 @@ public class IdleDungeoneer {
             //Game Field Rendering here
             for (PlayerCharacter character : playerCharacters) {
                 glColor3f(0f, 0f, 1f);
-                gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+                //gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+                drawCircle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale / 2, 36);
             }
 
             for (EnemyCharacter character : enemyCharacters) {
                 glColor3f(1f, 0f, 0f);
-                gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+                //gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+                drawCircle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, character.getSize() * gameBoardScale / 2, 36);
             }
 
 
