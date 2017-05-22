@@ -45,30 +45,42 @@ public class Item {
     }
 
     public enum itemTypes {
-        HELMET(1),
-        PAULDRONS(2),
-        CLOAK(3),
-        BODY_ARMOR(4),
-        BRACERS(5),
-        GLOVES(6),
-        BELT(7),
-        PANTS(8),
-        SHOES(9),
-        AMULET(10),
-        RING(11),
-        TRINKET(12),
-        WEAPON_1H(13),
-        WEAPON_2H(14),
-        SHIELD(15);
+        HELMET(1, 1.0f, 1.0f),
+        PAULDRONS(2, 0.8f, 0.8f),
+        CLOAK(3, 0.6f, 0.6f),
+        BODY_ARMOR(4, 1.0f, 1.0f),
+        BRACERS(5, 0.6f, 0.6f),
+        GLOVES(6, 0.8f, 0.8f),
+        BELT(7, 0.6f, 0.6f),
+        PANTS(8, 1.0f, 1.0f),
+        SHOES(9, 0.8f, 0.8f),
+        AMULET(10, 1.0f, 0.0f),
+        RING(11, 0.6f, 0.0f),
+        TRINKET(12, 1.1f, 1.1f),
+        WEAPON_1H(13, 1.0f, 0.0f),
+        WEAPON_2H(14, 2.0f, 0.0f),
+        SHIELD(15, 1.0f, 2.0f);
 
         private int _value;
+        private float _statMult;
+        private float _armorMult;
 
-        itemTypes(int Value) {
+        itemTypes(int Value, float statMult, float armorMult) {
             this._value = Value;
+            this._statMult = statMult;
+            this._armorMult = armorMult;
         }
 
         public int getValue() {
             return _value;
+        }
+
+        public float getArmorMultiplier() {
+            return _armorMult;
+        }
+
+        public float getStatMultiplier() {
+            return _statMult;
         }
 
         public static itemTypes fromInt(int i) {
@@ -78,6 +90,21 @@ public class Item {
             return null;
         }
     }
+
+    public static final float itemArmorFactorCloth = 0.2f;      //~790  (13.55%) Armor with full Ilvl 70 Gear
+    public static final float itemArmorFactorLeather = 0.4f;    //~1600 (23.87%) Armor
+    public static final float itemArmorFactorMail = 0.6f;       //~2350 (31.99%) Armor
+    public static final float itemArmorFactorPlate = 1.0f;      //~3900 (43.95%) Armor or ~5000 (50.00%) with a Shield
+
+    //Stats of a Itemlevel 70 Item at a Scalefactor of 1.0
+    public static final int itemLevelStatBase = 70;
+    public static final int baseFullSetPrimary = 4167;
+    public static final int baseFullSetStamina = 5208;
+    public static final int baseItemArmor = 543;
+    public static final int baseItemPrimary = 365;
+    public static final int baseItemStamina = 457;
+    public static final int baseItemSecondary1 = 256;
+    public static final int baseItemSecondary2 = 183;
 
     public enum primaryStat {
         STRENGTH,
@@ -93,8 +120,6 @@ public class Item {
         DODGE,
         BLOCK
     }
-
-    private double[] itemTypeStatFactor = new double[15];
 
     private int itemLevel;
     private itemTypes itemType;

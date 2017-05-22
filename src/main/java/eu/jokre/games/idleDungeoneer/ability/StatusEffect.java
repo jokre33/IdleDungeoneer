@@ -33,4 +33,8 @@ public class StatusEffect {
     public void apply() {
         this.endOfApplication = Instant.now().plus(duration);
     }
+
+    public void refresh() {
+        this.endOfApplication = Instant.now().plus(duration);
+    }
 }

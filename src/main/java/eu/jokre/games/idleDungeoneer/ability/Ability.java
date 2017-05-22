@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.Vector;
 
 import static eu.jokre.games.idleDungeoneer.ability.Ability.abilityCategories.*;
+import static eu.jokre.games.idleDungeoneer.ability.Ability.areaOfEffectLocations.*;
 import static eu.jokre.games.idleDungeoneer.ability.Ability.damageTypes.*;
 import static eu.jokre.games.idleDungeoneer.ability.Ability.targetCategories.*;
 
@@ -15,7 +16,7 @@ import static eu.jokre.games.idleDungeoneer.ability.Ability.targetCategories.*;
  * Created by jokre on 19-May-17.
  */
 
-public class Ability {
+public abstract class Ability {
     public enum damageTypes {
         PHYSICAL,   //Armor gets applied to Damage caused by the Ability
         MAGIC       //Magical resistance gets applied to Damage caused by this Ability
@@ -33,7 +34,7 @@ public class Ability {
     }
 
     public enum statusEffectTargets {
-        SELF,
+        CASTER,
         TARGET
     }
 
@@ -46,6 +47,17 @@ public class Ability {
         ABILITY_MISS,
         ABILITY_BLOCK
     }
+
+    public enum areaOfEffectLocations {
+        CASTER,
+        TARGET
+    }
+
+    protected boolean hasAreaOfEffect;
+    protected areaOfEffectLocations areaOfEffectLocation;
+    protected float areaOfEffectRange;
+
+    protected EntityCharacter owner = null;
 
     protected abilityCategories abilityCategory;
     protected damageTypes damageType;
@@ -67,7 +79,11 @@ public class Ability {
     protected Instant availableAfter;       //Timestamp of when the Ability can next be cast.
     protected int cost;                     //Resource cost of the Ability
 
-    public Ability() {
+    protected String name;
+    protected float range;
+
+    public Ability(EntityCharacter owner) {
+        this.owner = owner;
         damageType = PHYSICAL;
         abilityCategory = MELEE;
         targetCategory = ENEMIES;
@@ -77,6 +93,9 @@ public class Ability {
         availableAfter = Instant.now().plusMillis(5000);
         hasCastTime = false;
         castTime = Duration.ZERO;
+        range = 1;
+        hasAreaOfEffect = false;
+        areaOfEffectLocation = TARGET;
     }
 
     public void use(EntityCharacter caster) {
@@ -85,17 +104,19 @@ public class Ability {
     }
 
     public boolean cooldownReady() {
-        if (Instant.now().isAfter(availableAfter)) {
-            return true;
-        }
-        return false;
+        return Instant.now().isAfter(availableAfter);
     }
 
     public boolean isCooldownReadyIn(Duration duration) {
-        if (Instant.now().plus(duration).isAfter(availableAfter)) {
-            return true;
-        }
-        return false;
+        return Instant.now().plus(duration).isAfter(availableAfter);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     public statusEffectTargets getStatusEffectTarget() {
@@ -170,12 +191,9 @@ public class Ability {
         this.scaleFactor = scaleFactor;
     }
 
-    public void setAppliesStatusEffect(boolean appliesStatusEffect) {
-        this.appliesStatusEffect = appliesStatusEffect;
-    }
-
     public void setStatusEffect(StatusEffect statusEffect) {
         this.statusEffect = statusEffect;
+        this.appliesStatusEffect = statusEffect != null;
     }
 
     public void setCooldown(Duration cooldown) {
@@ -226,11 +244,36 @@ public class Ability {
     }
 
     public void setCastTime(Duration castTime) {
-        if (castTime == Duration.ZERO) {
-            this.hasCastTime = false;
-        } else {
-            this.hasCastTime = true;
-        }
+        this.hasCastTime = castTime != Duration.ZERO;
         this.castTime = castTime;
+    }
+
+    public float getRange() {
+        return range;
+    }
+
+    public void setRange(float range) {
+        this.range = range;
+    }
+
+    public boolean hasAreaOfEffect() {
+        return hasAreaOfEffect;
+    }
+
+    public areaOfEffectLocations getAreaOfEffectLocation() {
+        return areaOfEffectLocation;
+    }
+
+    public void setAreaOfEffectLocation(areaOfEffectLocations areaOfEffectLocation) {
+        this.areaOfEffectLocation = areaOfEffectLocation;
+    }
+
+    public float getAreaOfEffectRange() {
+        return areaOfEffectRange;
+    }
+
+    public void setAreaOfEffectRange(float areaOfEffectRange) {
+        this.areaOfEffectRange = areaOfEffectRange;
+        this.hasAreaOfEffect = areaOfEffectRange > 0;
     }
 }

@@ -4,11 +4,14 @@ package eu.jokre.games.idleDungeoneer;
  * Created by jokre on 19-May-17.
  */
 
-import eu.jokre.games.idleDungeoneer.ability.AbilityFireBall;
 import eu.jokre.games.idleDungeoneer.entity.EnemyCharacter;
 import eu.jokre.games.idleDungeoneer.entity.PlayerCharacter;
+import eu.jokre.games.idleDungeoneer.entity.PlayerCharacterMage;
+import eu.jokre.games.idleDungeoneer.entity.PlayerCharacterWarrior;
 import eu.jokre.games.idleDungeoneer.renderHelper.iDFont;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
+import org.joml.Vector3f;
 import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.*;
@@ -19,6 +22,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.Vector;
 
 import static eu.jokre.games.idleDungeoneer.entity.EnemyCharacter.Classification.*;
+import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.characterStates.CASTING;
+import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.characterStates.WAITING;
+import static java.time.temporal.ChronoUnit.MILLIS;
 import static org.lwjgl.glfw.Callbacks.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
@@ -28,6 +34,8 @@ import static org.lwjgl.system.MemoryUtil.*;
 public class IdleDungeoneer {
     // The window handle
     private long window;
+    private Vector2f cameraPosition = new Vector2f(0, 0);
+    private static final int gameBoardScale = 32;
 
     private Vector<PlayerCharacter> playerCharacters = new Vector<>();
     private Vector<EnemyCharacter> enemyCharacters = new Vector<>();
@@ -120,10 +128,11 @@ public class IdleDungeoneer {
 
         settings = new Settings();
 
-        this.playerCharacters.addElement(new PlayerCharacter(10, new Vector2f(0, 0), "Player 1"));
-        this.playerCharacters.lastElement().addAbility(new AbilityFireBall(), 2);
-        //this.playerCharacters.addElement(new PlayerCharacter(10, new Vector2f(0, 0), "player 2"));
-        this.enemyCharacters.addElement(new EnemyCharacter(10, 10, new Vector2f(0, 0), "boss 1", ELITE));
+        this.playerCharacters.addElement(new PlayerCharacterWarrior(50, new Vector2d(0, 0), "Warrior"));
+        for (int i = 1; i <= 14; i++) {
+            this.playerCharacters.addElement(new PlayerCharacterMage(50, new Vector2d(0, 0), "Mage " + i));
+        }
+        this.enemyCharacters.addElement(new EnemyCharacter(50, 100, new Vector2d(-20, -20), "enemy 1", RAID_BOSS));
     }
 
     public void generateAggroOnPlayerCharacters(EnemyCharacter e, double a) {
@@ -161,6 +170,47 @@ public class IdleDungeoneer {
         glEnable(GL_TEXTURE_2D);
     }
 
+    private void drawProgressBar(int x, int y, int width, int height, float progress, Vector3f colorBackground, Vector3f colorBar) {
+        glLoadIdentity();
+        glDisable(GL_TEXTURE_2D);
+        glScalef(2f / windowSize.x, -2f / windowSize.y, 0);
+        glTranslatef(x, y, 0);
+        glColor3f(colorBackground.x, colorBackground.y, colorBackground.z);
+        glBegin(GL_QUADS);
+        glVertex2f(0, 0);
+        glVertex2f(width, 0);
+        glVertex2f(width, height);
+        glVertex2f(0, height);
+        glEnd();
+        glColor3f(colorBar.x, colorBar.y, colorBar.z);
+        glBegin(GL_QUADS);
+        glVertex2f(0, 0);
+        glVertex2f(width * progress, 0);
+        glVertex2f(width * progress, height);
+        glVertex2f(0, height);
+        glEnd();
+        glEnable(GL_TEXTURE_2D);
+    }
+
+    public Vector<EnemyCharacter> getEnemyCharacters() {
+        return enemyCharacters;
+    }
+
+    public Vector<PlayerCharacter> getPlayerCharacters() {
+        return playerCharacters;
+    }
+
+    private void gameDrawRectangle(float x, float y, int width, int height) {
+        glDisable(GL_TEXTURE_2D);
+        glBegin(GL_QUADS);
+        glVertex2f(x, y);
+        glVertex2f(x + width, y);
+        glVertex2f(x + width, y + height);
+        glVertex2f(x, y + height);
+        glEnd();
+        glEnable(GL_TEXTURE_2D);
+    }
+
     private void loop() {
         // This line is critical for LWJGL's interoperation with GLFW's
         // OpenGL context, or any context that is managed externally.
@@ -177,7 +227,7 @@ public class IdleDungeoneer {
         }
 
         // Set the clear color
-        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+        glClearColor(1f, 0.412f, 0.706f, 0.0f);
 
         // Run the rendering loop until the user has attempted to close
         // the window or has pressed the ESCAPE key.
@@ -186,6 +236,25 @@ public class IdleDungeoneer {
             glColor3f(1, 1, 1); // Text color
 
             glLoadIdentity();
+            glScalef(1f / windowSize.x, -1f / windowSize.y, 0);
+
+            glPushMatrix();
+            glTranslatef(cameraPosition.x, cameraPosition.y, 0);
+
+            //Game Field Rendering here
+            for (PlayerCharacter character : playerCharacters) {
+                glColor3f(0f, 0f, 1f);
+                gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+            }
+
+            for (EnemyCharacter character : enemyCharacters) {
+                glColor3f(1f, 0f, 0f);
+                gameDrawRectangle((float) character.getPosition().x * gameBoardScale, (float) character.getPosition().y * gameBoardScale, gameBoardScale, gameBoardScale);
+            }
+
+
+            glPopMatrix();
+
             glPushMatrix();
 
             glColor3f(0f, 0f, 0f);
@@ -193,27 +262,41 @@ public class IdleDungeoneer {
             glScalef(2f / windowSize.x, -2f / windowSize.y, 0);
 
 
-            //Text Rendering Here
+            //UI Rendering
 
             if (!playerCharacters.isEmpty()) {
+                int playerFrameSpacing = 110;
                 int xOffset = Math.round(windowSize.x / (-2)) + 10;
                 int yOffset = Math.round(windowSize.y / (-2)) + 25;
                 for (int i = 0; i < playerCharacters.size(); i++) {
                     glColor3f(0.545f, 0.271f, 0.075f);
-                    drawRectangle(xOffset - 5, yOffset - 20 + i * 85, 200, 75);
+                    drawRectangle(xOffset - 5, yOffset - 20 + i * 110, 200, 75);
 
-                    drawText(playerCharacters.elementAt(i).getName(), xOffset, i * 85 + yOffset);
+                    drawText(playerCharacters.elementAt(i).getName(), xOffset, i * playerFrameSpacing + yOffset);
                     drawText(String.valueOf(Math.round(playerCharacters.elementAt(i).getHealth()))
                                     + " / "
                                     + String.valueOf(Math.round(playerCharacters.elementAt(i).getMaximumHealth()))
                                     + " HP"
-                            , xOffset, i * 85 + yOffset + 25);
+                            , xOffset, i * playerFrameSpacing + yOffset + 25);
                     drawText(String.valueOf(Math.round(playerCharacters.elementAt(i).getResource()))
                                     + " / "
                                     + String.valueOf(Math.round(playerCharacters.elementAt(i).getMaximumResource()))
                                     + " " + playerCharacters.elementAt(i).getResourceName()
-                            , xOffset, i * 85 + yOffset + 50);
-                    drawText(playerCharacters.elementAt(i).getCharacterStatus().toString(), xOffset + 150, i * 85 + yOffset);
+                            , xOffset, i * playerFrameSpacing + yOffset + 50);
+                    drawText(String.valueOf(playerCharacters.elementAt(i).globalCooldownRemaining()), xOffset + 150, i * playerFrameSpacing + yOffset);
+
+                    //Status Effect Bar
+                    if (playerCharacters.elementAt(i).getCharacterStatus() != WAITING) {
+                        if (playerCharacters.elementAt(i).getCharacterStatus() == CASTING) {
+                            long castTimeLeft = MILLIS.between(Instant.now(), playerCharacters.elementAt(i).getCharacterStatusUntil());
+                            long totalCastTime = playerCharacters.elementAt(i).currentlyCastingAbility().getCastTime().toMillis();
+                            float progress = (float) (totalCastTime - castTimeLeft) / (float) totalCastTime;
+                            drawProgressBar(xOffset - 5, yOffset - 20 + i * playerFrameSpacing + 75, 200, 25, progress, new Vector3f(0.5f, 0.5f, 0.5f), new Vector3f(1f, 1f, 1f));
+                            drawText(playerCharacters.elementAt(i).currentlyCastingAbility().getName(), xOffset, i * playerFrameSpacing + yOffset + 75);
+                        }
+                    } else if (playerCharacters.elementAt(i).getLastAbility() != null) {
+                        drawText(playerCharacters.elementAt(i).getLastAbility().getName(), xOffset, i * playerFrameSpacing + yOffset + 75);
+                    }
                 }
             }
 
@@ -246,9 +329,8 @@ public class IdleDungeoneer {
             glfwPollEvents();
 
             //TODO: Debug Code!
-            if (ChronoUnit.SECONDS.between(this.lastEnemySpawn, Instant.now()) >= 10) {
-                System.out.println("spawning enemy?");
-                this.enemyCharacters.addElement(new EnemyCharacter(10, 10, new Vector2f(0, 0), "enemy " + (this.enemyCharacters.size() + 1), NORMAL));
+            if (ChronoUnit.SECONDS.between(this.lastEnemySpawn, Instant.now()) >= 10000) {
+                this.enemyCharacters.addElement(new EnemyCharacter(50, 70, new Vector2d(-20, -20), "enemy " + (this.enemyCharacters.size() + 1), NORMAL));
                 this.lastEnemySpawn = Instant.now();
             }
 
@@ -262,7 +344,7 @@ public class IdleDungeoneer {
                 }
             }
             if (!enemyCharacters.isEmpty()) {
-                Vector<EnemyCharacter> markForRemoval = new Vector<EnemyCharacter>();
+                Vector<EnemyCharacter> markForRemoval = new Vector<>();
                 for (EnemyCharacter enemyCharacter : this.enemyCharacters) {
                     if (!enemyCharacter.tick()) {
                         for (PlayerCharacter playerCharacter : this.playerCharacters) {

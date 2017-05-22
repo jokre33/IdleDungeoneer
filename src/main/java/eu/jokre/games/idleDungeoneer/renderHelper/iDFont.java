@@ -1,6 +1,5 @@
 package eu.jokre.games.idleDungeoneer.renderHelper;
 
-import org.joml.Vector2f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBTTAlignedQuad;
 import org.lwjgl.stb.STBTTBakedChar;
@@ -21,10 +20,10 @@ import static org.lwjgl.system.MemoryStack.stackPush;
  */
 public class iDFont {
 
-    int fontSize = 20;
-    STBTTBakedChar.Buffer cdata;
-    int BITMAP_W = 512;
-    int BITMAP_H = 512;
+    final int fontSize = 20;
+    final STBTTBakedChar.Buffer cdata;
+    final int BITMAP_W = 512;
+    final int BITMAP_H = 512;
 
     public iDFont() {
         this.cdata = init(BITMAP_W, BITMAP_H);

@@ -1,11 +1,12 @@
 package eu.jokre.games.idleDungeoneer.entity;
 
-import eu.jokre.games.idleDungeoneer.IDHelper;
+import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
 import eu.jokre.games.idleDungeoneer.Inventory.Item;
 import eu.jokre.games.idleDungeoneer.ability.Ability;
 import eu.jokre.games.idleDungeoneer.ability.StatusEffect;
-import org.joml.Vector2f;
+import org.joml.Vector2d;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
@@ -21,13 +22,18 @@ import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.resourceTypes
  * Created by jokre on 19-May-17.
  */
 
-public class EntityCharacter extends Entity {
+public abstract class EntityCharacter extends Entity {
     protected String name;
 
-    public static final int abilityCap = 20;
+    public static final int abilityCap = 21;
 
-    protected Ability[] abilities = new Ability[abilityCap];    //Any Entity can have and use up to 18 Active Abilities.
-    protected Vector<Aggro> aggroTable = new Vector<Aggro>();   // > Slot 0 and 1 are reserved for Auto Hits.
+    protected Ability[] abilities = new Ability[abilityCap];    //Any Entity can have and use up to 19 Active Abilities.
+    protected Vector<Aggro> aggroTable = new Vector<>();   // > Slot 0 and 1 are reserved for Auto Hits.
+    protected float moveToRange;    //Maximum Range to target this Entity tries to keep.
+    protected float movementSpeed;  //Movement Speed in Units/Second
+    protected float aggroModifier = 1;
+
+    public static final float meleeRange = 1;
 
     public enum combatRollValues {
         MISS,
@@ -45,21 +51,21 @@ public class EntityCharacter extends Entity {
         STUNNED     //Character is Stunned. No Actions are possible.
     }
 
-    private characterStates characterStatus = WAITING;    //Defaults to waiting TODO: actually implement that LUL
-    private Instant characterStatusUntil;                 //When is the Character available again
-    private Ability castingAbility;                       //Used in conjunction with the CASTING status. When casting is done this ability will be used.
+    protected characterStates characterStatus = WAITING;    //Defaults to waiting TODO: actually implement that LUL
+    protected Instant characterStatusUntil;                 //When is the Character available again
+    protected Ability castingAbility;                       //Used in conjunction with the CASTING status. When casting is done this ability will be used.
 
-    private boolean isEnemy;
+    boolean isEnemy;
 
     /*********************
      * Stats and Scaling *
      *********************/
 
     public static final int maxLevel = 50;
-    private int level;        //Increases Power of Player Characters and Enemy Characters alike.
-    private float itemlevel;  //Only directly increases the Power of Enemy Characters. It acts as a gauging point for Player Character Power.
+    int level;        //Increases Power of Player Characters and Enemy Characters alike.
+    float itemlevel;  //Only directly increases the Power of Enemy Characters. It acts as a gauging point for Player Character Power.
 
-    public static final double itemLevelScaling = 0.15;
+    public static final double itemLevelScaling = 1.15;
     public static final int itemLevelScalingPerXAmount = 15;
 
     public static final float[] ratingConversion = {0,
@@ -67,13 +73,15 @@ public class EntityCharacter extends Entity {
             61, 62, 63, 64, 65, 66, 67, 68, 69, 70,   //Level 11 - 20
             71, 72, 73, 74, 75, 76, 77, 78, 79, 80,   //Level 21 - 30
             81, 82, 83, 84, 85, 86, 87, 88, 89, 90,   //Level 31 - 40
-            91, 92, 93, 94, 95, 96, 97, 98, 99, 100   //Level 41 - 50
+            91, 92, 93, 94, 95, 96, 97, 98, 99, 100,  //Level 41 - 50
+            101, 102, 103                             //For Enemies
     };
 
-    public static final int statGainPerLevel = 3;
-    public static final int primaryStatBonus = 1;
+    public static final int statGainPerLevel = 5;
+    public static final int primaryStatBonus = 3;
+    public static final int staminaGainPerLevel = 10;
 
-    public static final int baseStatLevel = 10;
+    public static final int statBonusLevels = 10;
 
     //Strength
     protected double strength = 0;
@@ -96,8 +104,8 @@ public class EntityCharacter extends Entity {
     //Stamina & Health
     protected double stamina = 0;
     public static final double healthFromStamina = 5;
-    double health;
-    double maximumHealth;
+    protected double health;
+    protected double maximumHealth;
 
     //Resources
     public enum resourceTypes {
@@ -106,17 +114,17 @@ public class EntityCharacter extends Entity {
         ENERGY
     }
 
-    private resourceTypes resourceType = MANA;
-    double resource;
-    double maximumResource;
-    double resourceRegeneration;
+    protected resourceTypes resourceType = MANA;
+    protected double resource;
+    protected double maximumResource;
+    protected double resourceRegeneration;
 
     //Accuracy
     private double accuracy = 0;
 
     //Critical Chance / Damage
     protected double criticalStrikeRating;
-    private double criticalStrikeChance;
+    protected double criticalStrikeChance;
     protected double spellCriticalStrikeChance;
     protected double attackCriticalStrikeChance;
     protected double spellCriticalStrikeDamage;
@@ -132,7 +140,7 @@ public class EntityCharacter extends Entity {
 
     //Parry
     protected double parryRating;
-    private double parryChance;
+    protected double parryChance;
     public static final double parryBase = 0.05;
     public static final double parryPerLevelDifference = 0.01; //+1% per level above the Attacker -1% per Level below
     public static final double parryRatingConversionMultiplier = 0.75; //To offset the Quadratic growth a bit
@@ -140,7 +148,7 @@ public class EntityCharacter extends Entity {
 
     //Dodge
     protected double dodgeRating;
-    private double dodgeChance;
+    protected double dodgeChance;
     public static final double dodgeBase = 0.05;
     public static final double dodgePerLevelDifference = 0.01; //+1% per level above the Attacker -1% per Level below
     public static final double dodgeRatingConversionMultiplier = 0.75; //To offset the Quadratic growth a bit
@@ -148,9 +156,9 @@ public class EntityCharacter extends Entity {
     //Block
     protected double blockRating;
     protected double blockMultiplier;
-    private double blockChance;
+    protected double blockChance;
     protected double blockAmount;
-    private boolean canBlock; //True if the Entity can Block
+    protected boolean canBlock; //True if the Entity can Block
     public static final double blockRatingConversionMultiplier = 1.5;
 
     //Armor & Resistance
@@ -159,15 +167,15 @@ public class EntityCharacter extends Entity {
     protected double resistance;
 
     //Attack Power & Weapon
-    private double attackPower;
-    double weaponDamageMin;
-    double weaponDamageMax;
-    protected double weaponAttackSpeed;
+    protected double attackPower;
+    protected double weaponDamageMin;
+    protected double weaponDamageMax;
+    protected Duration weaponAttackSpeed;
     protected boolean dualWielding;     //Is the Character using a second Weapon in the Offhand. This adds a Second Auto Attack ability.
     protected double weapon2DamageMin;
     protected double weapon2DamageMax;
-    protected double weapon2AttackSpeed;
-    private double missChance;
+    protected Duration weapon2AttackSpeed;
+    protected double missChance;
     public static final double baseMissChance = 0.05;
     public static final double dualWieldMissChanceIncrease = 0.1;
     public static final double attackPowerConversionToWeaponDamage = 0.5;
@@ -177,7 +185,7 @@ public class EntityCharacter extends Entity {
 
     /****************/
 
-    private Item[] items = new Item[16];
+    protected Item[] items = new Item[16];
 
     protected Vector<StatusEffect> currentBuffs = new Vector<>();
     protected Vector<StatusEffect> currentDebuffs = new Vector<>();
@@ -185,27 +193,30 @@ public class EntityCharacter extends Entity {
     protected EntityCharacter target;
 
     boolean dead = false;
-    private IDHelper helper = new IDHelper();
-    private boolean targetExists;
+    protected boolean targetExists;
 
-    private Instant globalCooldownUntil = Instant.now();
+    protected Instant globalCooldownUntil = Instant.now();
+    protected Ability lastAbility = null;
 
     Instant deathTime = null;
     Instant lastTick = Instant.now();
 
-    EntityCharacter(int level, float itemlevel, Vector2f position, String name, boolean isEnemy) {
+    EntityCharacter(int level, float itemlevel, Vector2d position, String name, boolean isEnemy) {
         super(position);
         this.level = level;
         this.itemlevel = itemlevel;
         this.name = name;
-        this.maximumHealth = 10 * level + 10 * itemlevel;
-        this.health = this.maximumHealth;
-        this.maximumResource = 100;
-        this.resource = maximumResource;
-        this.resourceRegeneration = maximumResource * 0.1;
-        this.weaponDamageMin = level;
-        this.weaponDamageMax = level * 1.2;
         this.isEnemy = isEnemy;
+    }
+
+    abstract void updateStats();
+
+    private void triggerGlobalCooldown() {
+        this.globalCooldownUntil = Instant.now().plus(IdleDungeoneer.getSettings().getGlobalCooldown());
+    }
+
+    public float globalCooldownRemaining() {
+        return (float) Duration.between(Instant.now(), this.globalCooldownUntil).toMillis() / 1000f;
     }
 
     Ability chooseNextCast() {
@@ -251,6 +262,7 @@ public class EntityCharacter extends Entity {
 
     public void generateAggro(EntityCharacter target, double amount) {
         boolean characterOnTable = false;
+        amount *= target.getAggroModifier();
         if (!this.aggroTable.isEmpty()) {
             for (int i = 0; i < this.aggroTable.size(); i++) {
                 if (this.aggroTable.elementAt(i).getTarget() == target) {
@@ -287,19 +299,25 @@ public class EntityCharacter extends Entity {
 
     public void attack(EntityCharacter target, Ability ability) {
         Ability.abilityHitCategories hitType;
+        double abilityDamage;
+        //Global Cooldown
+        if (ability.isOnGlobalCooldown()) {
+            this.lastAbility = ability;
+            if (!ability.hasCastTime()) {
+                triggerGlobalCooldown();
+            }
+        }
         //Hit Calculation
         ability.use(this);
         if (ability.getAbilityCategory() == SPELL) {
             double critChance = this.criticalStrikeChance;
             double roll = Math.random();
 
-            double abilityDamage = this.spellPower * ability.getScaleFactor();
+            abilityDamage = this.spellPower * ability.getScaleFactor();
 
             if (roll < critChance) {
-                target.defend(this, ability, ABILITY_CRIT, abilityDamage);
                 hitType = ABILITY_CRIT;
             } else {
-                target.defend(this, ability, ABILITY_HIT, abilityDamage);
                 hitType = ABILITY_HIT;
             }
         } else {
@@ -310,6 +328,8 @@ public class EntityCharacter extends Entity {
             double blockChance = target.getBlockChance();
             double critChance = this.criticalStrikeChance;
             double roll = Math.random();
+            dodgeChance += (target.getLevel() - this.getLevel()) * dodgePerLevelDifference;
+            parryChance += (target.getLevel() - this.getLevel()) * parryPerLevelDifference;
 
             if (accuracy > 0) {
                 missChance -= accuracy;
@@ -318,69 +338,78 @@ public class EntityCharacter extends Entity {
             }
             if (accuracy > 0) {
                 dodgeChance -= accuracy;
-                dodgeChance += (target.getLevel() - this.getLevel()) * dodgePerLevelDifference;
                 accuracy -= target.getDodgeChance() + (target.getLevel() - this.getLevel()) * dodgePerLevelDifference;
                 if (dodgeChance < 0) dodgeChance = 0;
             }
             if (accuracy > 0) {
                 parryChance -= accuracy;
-                parryChance += (target.getLevel() - this.getLevel()) * parryPerLevelDifference;
                 if (parryChance < 0) parryChance = 0;
             }
 
-            double abilityDamage = 0;
+            abilityDamage = 0;
             switch (ability.getAbilityCategory()) {
                 case MELEE:
                     abilityDamage = this.attackPower * ability.getScaleFactor();
                     break;
                 case WEAPON:
                     abilityDamage = Math.random() * (this.weaponDamageMax - this.weaponDamageMin) + this.weaponDamageMin;
+                    abilityDamage *= ability.getScaleFactor();
                     abilityDamage *= 10;
                     abilityDamage = Math.round(abilityDamage);
                     abilityDamage /= 10;
-                    abilityDamage *= ability.getScaleFactor();
                     break;
             }
 
             if (roll < missChance) {
-                target.defend(this, ability, ABILITY_MISS, 0);
+                abilityDamage *= 0;
                 hitType = ABILITY_MISS;
             } else if (roll < (missChance + dodgeChance)) {
-                target.defend(this, ability, ABILITY_DODGE, 0);
+                abilityDamage *= 0;
                 hitType = ABILITY_DODGE;
             } else if (roll < (missChance + dodgeChance + parryChance)) {
-                target.defend(this, ability, ABILITY_PARRY, 0);
+                abilityDamage *= 0;
                 hitType = ABILITY_PARRY;
             } else if (roll < (missChance + dodgeChance + parryChance + blockChance)) {
-                target.defend(this, ability, ABILITY_BLOCK, abilityDamage);
                 hitType = ABILITY_BLOCK;
             } else if (roll < (missChance + dodgeChance + parryChance + blockChance + critChance)) {
-                target.defend(this, ability, ABILITY_CRIT, abilityDamage);
                 hitType = ABILITY_CRIT;
             } else {
-                target.defend(this, ability, ABILITY_HIT, abilityDamage);
                 hitType = ABILITY_HIT;
             }
         }
-        //TODO: Handle Buff application
+        //TODO: Split Area of Effect damage on Main Target to allow lower damage on secondary Targets
+        if (ability.hasAreaOfEffect() && !this.isEnemy) {
+            if (ability.getAreaOfEffectLocation() == Ability.areaOfEffectLocations.TARGET) {
+                for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
+                    if (target.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
+                        enemyCharacter.defend(this, ability, hitType, abilityDamage);
+                }
+            } else {
+                for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
+                    if (this.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
+                        enemyCharacter.defend(this, ability, hitType, abilityDamage);
+                }
+            }
+        } else {
+            target.defend(this, ability, hitType, abilityDamage);
+        }
+        if (ability.appliesStatusEffect()) {
+            for (Ability.abilityHitCategories type : ability.getStatusEffectApplicationCondition()) {
+                if (hitType == type) {
+                    switch (ability.getStatusEffectTarget()) {
+                        case CASTER:
+                            this.applyBuff(ability.getStatusEffect());
+                            break;
+                        case TARGET:
+                            target.applyDebuff(ability.getStatusEffect());
+                            break;
+                    }
+                }
+            }
+        }
     }
 
     public double defend(EntityCharacter attacker, Ability spell, Ability.abilityHitCategories hitType, double abilityDamage) {
-        if (spell.appliesStatusEffect() && spell.getStatusEffectTarget() == TARGET) {
-            boolean applyDebuff = false;
-
-            for (Ability.abilityHitCategories hitConditional : spell.getStatusEffectApplicationCondition()) {
-                if (hitConditional == hitType) {
-                    applyDebuff = true;
-                    break;
-                }
-            }
-
-            if (!currentDebuffs.contains(spell.getStatusEffect()) && applyDebuff)
-                currentDebuffs.addElement(spell.getStatusEffect());
-            currentDebuffs.elementAt(currentDebuffs.indexOf(spell.getStatusEffect())).apply();
-        }
-
         if (abilityDamage > 0) {
             double damageTaken = abilityDamage;
             switch (spell.getDamageType()) {
@@ -402,9 +431,58 @@ public class EntityCharacter extends Entity {
                 this.deathTime = Instant.now();
                 this.dead = true;
             }
+            this.generateAggro(attacker, damageTaken);
+            if (hitType != null) {
+                System.out.print(Instant.now().toString() + " " + attacker.getName() + " " + hitType + " ");
+                if (damageTaken > 0) System.out.print(Math.round(damageTaken) + " ");
+                System.out.println(this.getName());
+            }
             return damageTaken;
         }
         return 0;
+    }
+
+    public void disableAttack() {
+        this.abilities[0].disable();
+        this.abilities[1].disable();
+    }
+
+    public float getAggroModifier() {
+        return aggroModifier;
+    }
+
+    public void setAggroModifier(float aggroModifier) {
+        this.aggroModifier = aggroModifier;
+    }
+
+    public boolean hasBuff(StatusEffect statusEffect) {
+        return this.currentBuffs.contains(statusEffect);
+    }
+
+    public void applyBuff(StatusEffect statusEffect) {
+        if (this.currentBuffs.contains(statusEffect)) {
+            this.currentBuffs.elementAt(this.currentBuffs.indexOf(statusEffect)).refresh();
+        } else {
+            this.currentBuffs.addElement(statusEffect);
+            this.currentBuffs.lastElement().apply();
+        }
+    }
+
+    public void removeBuff(StatusEffect statusEffect) {
+        if (this.currentBuffs.contains(statusEffect)) this.currentBuffs.removeElement(statusEffect);
+    }
+
+    public void applyDebuff(StatusEffect statusEffect) {
+        if (this.currentDebuffs.contains(statusEffect)) {
+            this.currentDebuffs.elementAt(this.currentDebuffs.indexOf(statusEffect)).refresh();
+        } else {
+            this.currentDebuffs.addElement(statusEffect);
+            this.currentDebuffs.lastElement().apply();
+        }
+    }
+
+    public void removeDebuff(StatusEffect statusEffect) {
+        if (this.currentDebuffs.contains(statusEffect)) this.currentDebuffs.removeElement(statusEffect);
     }
 
     protected void findTarget() {
@@ -415,6 +493,40 @@ public class EntityCharacter extends Entity {
                 }
             }
         }
+    }
+
+    public double getDistance(Entity e) {
+        double xDistance = Math.abs(this.getPosition().x - e.getPosition().x);
+        double yDistance = Math.abs(this.getPosition().y - e.getPosition().y);
+        return Math.sqrt(Math.pow(xDistance, 2) + Math.pow(yDistance, 2));
+    }
+
+    public boolean inAbilityRange(Ability ability) {
+        return (getDistance(this.getTarget()) <= ability.getRange());
+    }
+
+    public boolean moveToEntity(Entity e, long timeMoving, float range) {
+        if (getDistance(e) > range) {
+            double xDistance = e.getPosition().x - this.getPosition().x;
+            double yDistance = e.getPosition().y - this.getPosition().y;
+            double angle = Math.asin(Math.abs(xDistance) / getDistance(e));
+            double moveX = Math.sin(angle) * this.movementSpeed * timeMoving / 1000;
+            double moveY = Math.cos(angle) * this.movementSpeed * timeMoving / 1000;
+            if (xDistance < 0) moveX *= -1;
+            if (yDistance < 0) moveY *= -1;
+            this.position.x += moveX;
+            this.position.y += moveY;
+        }
+
+        if (getDistance(e) <= range) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean moveToTarget(long timeMoving) {
+        return moveToEntity(this.getTarget(), timeMoving, this.moveToRange);
     }
 
     public void useResource(double resource) {
@@ -543,18 +655,29 @@ public class EntityCharacter extends Entity {
         return -1;
     }
 
-    public boolean tick() {
-        Instant now = Instant.now();
-        long timeSinceLastTick = ChronoUnit.MILLIS.between(this.lastTick, now);
-        this.lastTick = now;
-
+    protected void timedActions(long timeSinceLastTick) {
+        if ((this.getCharacterStatus() == WAITING || this.getCharacterStatus() == MOVING) && this.target != null) {
+            if (!moveToTarget(timeSinceLastTick)) {
+                this.characterStatus = MOVING;
+                this.characterStatusUntil = Instant.now().plus(Duration.ofMillis(1000));
+            } else {
+                this.characterStatus = WAITING;
+                this.characterStatusUntil = Instant.now().minus(Duration.ofMillis(1000));
+            }
+        }
         if (this.resource < this.maximumResource) {
             this.resource += timeSinceLastTick * resourceRegeneration / 1000;
         }
         if (this.resource > this.maximumResource) {
             this.resource = this.maximumResource;
         }
+    }
 
+    public boolean tick() {
+        Instant now = Instant.now();
+        long timeSinceLastTick = ChronoUnit.MILLIS.between(this.lastTick, now);
+        this.lastTick = now;
+        this.timedActions(timeSinceLastTick);
         this.ai();
         return true;
     }
@@ -579,10 +702,10 @@ public class EntityCharacter extends Entity {
         if (this.hasTarget() && !this.getTarget().isDead()) {
             if (this.characterStatus == WAITING || this.characterStatus == MOVING) {
                 //Auto Hits
-                if (abilities[0].cooldownReady()) {
+                if (abilities[0].cooldownReady() && this.abilities[0].isEnabled() && this.inAbilityRange(abilities[0])) {
                     attack(this.target, abilities[0]);
                 }
-                if (this.abilities[1] != null && this.abilities[1].isEnabled() && this.abilities[1].cooldownReady()) {
+                if (this.abilities[1] != null && this.abilities[1].isEnabled() && this.abilities[1].cooldownReady() && this.inAbilityRange(abilities[1])) {
                     attack(this.target, abilities[1]);
                 }
 
@@ -592,11 +715,14 @@ public class EntityCharacter extends Entity {
                         this.characterStatus = CASTING;
                         this.castingAbility = nextCast;
                         this.characterStatusUntil = Instant.now().plus(nextCast.getCastTime());
+                        this.triggerGlobalCooldown();
                     } else {
                         attack(this.target, nextCast);
                     }
                 }
             }
+        } else {
+            findTarget();
         }
     }
 
@@ -622,6 +748,14 @@ public class EntityCharacter extends Entity {
             default:
                 return "Mana";
         }
+    }
+
+    public Ability currentlyCastingAbility() {
+        return castingAbility;
+    }
+
+    public Ability getLastAbility() {
+        return lastAbility;
     }
 
     private class Aggro implements Comparable<Aggro> {

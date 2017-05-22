@@ -2,6 +2,7 @@ package eu.jokre.games.idleDungeoneer.entity;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
 import eu.jokre.games.idleDungeoneer.ability.AutoAttack;
+import org.joml.Vector2d;
 import org.joml.Vector2f;
 
 import java.time.Duration;
@@ -11,36 +12,54 @@ import java.time.temporal.ChronoUnit;
 /**
  * Created by jokre on 20-May-17.
  */
-public class PlayerCharacter extends EntityCharacter {
-    public PlayerCharacter(int level, Vector2f position, String name) {
+public abstract class PlayerCharacter extends EntityCharacter {
+    public PlayerCharacter(int level, Vector2d position, String name) {
         super(level, 0, position, name, false);
-        IdleDungeoneer.idleDungeoneer.generateAggroOnEnemyCharacters(this, 1);
-        this.addAbility(new AutoAttack(), 0);
-        this.addAbility(new AutoAttack(), 1);
+        this.addAbility(new AutoAttack(this), 0);
+        this.abilities[0].enable();
+        this.addAbility(new AutoAttack(this), 1);
         this.abilities[1].disable();
-        this.weaponDamageMin = 2;
+        this.attackPower = 5500;
+        this.weaponDamageMin = attackPower * 0.9;
+        this.weaponDamageMin = attackPower * 1.1;
+        this.weaponAttackSpeed = Duration.ofMillis(2000);
+        this.weapon2DamageMin = attackPower * 0.9;
+        this.weapon2DamageMin = attackPower * 1.1;
+        this.weapon2AttackSpeed = Duration.ofMillis(1800);
+        this.abilities[0].setCooldown(weaponAttackSpeed);
+        this.abilities[1].setCooldown(weapon2AttackSpeed);
         this.weaponDamageMax = 3;
-        this.spellPower = 30;
+        this.spellPower = 5500;
+        this.maximumHealth = 2000000;
+        this.health = 2000000;
+        this.maximumResource = 2000;
+        this.resource = this.maximumResource;
+        this.resourceRegeneration = this.maximumResource * 0.01;
+        this.moveToRange = meleeRange;
+        this.movementSpeed = 1;
+        this.criticalStrikeChance = 0.5;
+        this.updateStats();
+    }
+
+    @Override
+    void updateStats() {
+
     }
 
     public boolean tick() {
-        Instant now = Instant.now();
-        long timeSinceLastTick = ChronoUnit.MILLIS.between(this.lastTick, now);
-        this.lastTick = now;
-
-        if (this.resource < this.maximumResource) {
-            this.resource += timeSinceLastTick * resourceRegeneration / 1000;
+        if (!this.isDead()) {
+            Instant now = Instant.now();
+            long timeSinceLastTick = ChronoUnit.MILLIS.between(this.lastTick, now);
+            this.lastTick = now;
+            this.timedActions(timeSinceLastTick);
+            IdleDungeoneer.idleDungeoneer.generateAggroOnEnemyCharacters(this, 1);
+            this.timedActions(timeSinceLastTick);
+            this.ai();
         }
-        if (this.resource > this.maximumResource) {
-            this.resource = this.maximumResource;
-        }
-
         if (this.isDead() && Instant.now().isAfter(this.deathTime.plus(Duration.ofSeconds(5)))) {
             this.dead = false;
             this.health = this.maximumHealth;
         }
-
-        this.ai();
         return true;
     }
 }
