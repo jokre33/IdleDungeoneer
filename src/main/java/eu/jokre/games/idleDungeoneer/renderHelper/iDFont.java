@@ -20,10 +20,11 @@ import static org.lwjgl.system.MemoryStack.stackPush;
  */
 public class iDFont {
 
-    final int fontSize = 20;
+    final int fontSize = 15;
     final STBTTBakedChar.Buffer cdata;
     final int BITMAP_W = 512;
     final int BITMAP_H = 512;
+    int texID;
 
     public iDFont() {
         this.cdata = init(BITMAP_W, BITMAP_H);
@@ -34,7 +35,7 @@ public class iDFont {
     }
 
     private STBTTBakedChar.Buffer init(int BITMAP_W, int BITMAP_H) {
-        int texID = glGenTextures();
+        texID = glGenTextures();
         STBTTBakedChar.Buffer cdata = STBTTBakedChar.malloc(255);
 
         try {
@@ -59,6 +60,8 @@ public class iDFont {
     }
 
     private void renderText(STBTTBakedChar.Buffer cdata, int BITMAP_W, int BITMAP_H, String text) {
+        glEnable(GL_TEXTURE_2D);
+        glBindTexture(GL_TEXTURE_2D, texID);
         try (MemoryStack stack = stackPush()) {
             FloatBuffer x = stack.floats(0.0f);
             FloatBuffer y = stack.floats(0.0f);
@@ -91,5 +94,6 @@ public class iDFont {
             }
             glEnd();
         }
+        glDisable(GL_TEXTURE_2D);
     }
 }

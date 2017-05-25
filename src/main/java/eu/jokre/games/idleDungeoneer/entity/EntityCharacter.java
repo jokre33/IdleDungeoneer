@@ -2,7 +2,9 @@ package eu.jokre.games.idleDungeoneer.entity;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
 import eu.jokre.games.idleDungeoneer.Inventory.Item;
+import eu.jokre.games.idleDungeoneer.Settings;
 import eu.jokre.games.idleDungeoneer.ability.Ability;
+import eu.jokre.games.idleDungeoneer.ability.IncomingHealingAbility;
 import eu.jokre.games.idleDungeoneer.ability.StatusEffect;
 import org.joml.Vector2d;
 
@@ -34,6 +36,7 @@ public abstract class EntityCharacter extends Entity {
     protected float aggroModifier = 1;
 
     public static final float meleeRange = 1;
+    public static final float castRange = 6;
 
     public enum combatRollValues {
         MISS,
@@ -54,8 +57,10 @@ public abstract class EntityCharacter extends Entity {
     protected characterStates characterStatus = WAITING;    //Defaults to waiting TODO: actually implement that LUL
     protected Instant characterStatusUntil;                 //When is the Character available again
     protected Ability castingAbility;                       //Used in conjunction with the CASTING status. When casting is done this ability will be used.
+    protected EntityCharacter castingTarget;
 
     boolean isEnemy;
+    protected Vector<IncomingHealingAbility> incomingHealingSpells = new Vector<>();
 
     /*********************
      * Stats and Scaling *
@@ -211,8 +216,8 @@ public abstract class EntityCharacter extends Entity {
 
     abstract void updateStats();
 
-    private void triggerGlobalCooldown() {
-        this.globalCooldownUntil = Instant.now().plus(IdleDungeoneer.getSettings().getGlobalCooldown());
+    void triggerGlobalCooldown() {
+        this.globalCooldownUntil = Instant.now().plus(Settings.globalCooldown);
     }
 
     public float globalCooldownRemaining() {
@@ -229,16 +234,6 @@ public abstract class EntityCharacter extends Entity {
                         }
                     }
                 }
-                /*
-                if (characterStatus == WAITING) {
-                    if (this.abilities[i].cooldownReady() && this.resource >= this.abilities[i].getCost()) {
-                        return this.abilities[i];
-                    }
-                } else if (characterStatus == MOVING) {
-                    if (this.abilities[i].cooldownReady() && this.resource >= this.abilities[i].getCost() && !this.abilities[i].hasCastTime()) {
-                        return this.abilities[i];
-                    }
-                } */
             }
         }
         return null;
@@ -378,16 +373,30 @@ public abstract class EntityCharacter extends Entity {
             }
         }
         //TODO: Split Area of Effect damage on Main Target to allow lower damage on secondary Targets
-        if (ability.hasAreaOfEffect() && !this.isEnemy) {
-            if (ability.getAreaOfEffectLocation() == Ability.areaOfEffectLocations.TARGET) {
-                for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
-                    if (target.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
-                        enemyCharacter.defend(this, ability, hitType, abilityDamage);
+        if (ability.hasAreaOfEffect()) {
+            if (!this.isEnemy) {
+                if (ability.getAreaOfEffectLocation() == Ability.areaOfEffectLocations.TARGET) {
+                    for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
+                        if (target.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
+                            enemyCharacter.defend(this, ability, hitType, abilityDamage);
+                    }
+                } else {
+                    for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
+                        if (this.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
+                            enemyCharacter.defend(this, ability, hitType, abilityDamage);
+                    }
                 }
             } else {
-                for (EnemyCharacter enemyCharacter : IdleDungeoneer.idleDungeoneer.getEnemyCharacters()) {
-                    if (this.getDistance(enemyCharacter) <= ability.getAreaOfEffectRange())
-                        enemyCharacter.defend(this, ability, hitType, abilityDamage);
+                if (ability.getAreaOfEffectLocation() == Ability.areaOfEffectLocations.TARGET) {
+                    for (PlayerCharacter playerCharacter : IdleDungeoneer.idleDungeoneer.getPlayerCharacters()) {
+                        if (target.getDistance(playerCharacter) <= ability.getAreaOfEffectRange())
+                            playerCharacter.defend(this, ability, hitType, abilityDamage);
+                    }
+                } else {
+                    for (PlayerCharacter playerCharacter : IdleDungeoneer.idleDungeoneer.getPlayerCharacters()) {
+                        if (this.getDistance(playerCharacter) <= ability.getAreaOfEffectRange())
+                            playerCharacter.defend(this, ability, hitType, abilityDamage);
+                    }
                 }
             }
         } else {
@@ -419,10 +428,10 @@ public abstract class EntityCharacter extends Entity {
                     if (damageTaken < 0) damageTaken = 0;
                     break;
                 case PHYSICAL:
+                    damageTaken *= 1 - this.armorDamageReduction;
                     if (hitType == ABILITY_CRIT) damageTaken *= 2;
                     if (hitType == ABILITY_BLOCK) damageTaken -= this.blockAmount;
                     if (damageTaken < 0) damageTaken = 0;
-                    damageTaken *= 1 - this.armorDamageReduction;
                     break;
             }
             this.health -= damageTaken;
@@ -432,7 +441,7 @@ public abstract class EntityCharacter extends Entity {
                 this.dead = true;
             }
             this.generateAggro(attacker, damageTaken);
-            if (hitType != null) {
+            if (hitType != null && Settings.combatLog) {
                 System.out.print(Instant.now().toString() + " " + attacker.getName() + " " + hitType + " ");
                 if (damageTaken > 0) System.out.print(Math.round(damageTaken) + " ");
                 System.out.println(this.getName());
@@ -440,6 +449,29 @@ public abstract class EntityCharacter extends Entity {
             return damageTaken;
         }
         return 0;
+    }
+
+    public boolean useAbility(EnemyCharacter t, Ability a) {
+        if (this.globalCooldownRemaining() <= 0) {
+            if (a.hasCastTime()) {
+                if (this.characterStatus == WAITING) {
+                    startCasting(t, a);
+                    return true;
+                }
+            } else {
+                attack(t, a);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void startCasting(EnemyCharacter t, Ability a) {
+        this.characterStatus = CASTING;
+        this.castingTarget = t;
+        this.castingAbility = a;
+        this.characterStatusUntil = Instant.now().plus(a.getCastTime());
+        this.triggerGlobalCooldown();
     }
 
     public void disableAttack() {
@@ -453,6 +485,15 @@ public abstract class EntityCharacter extends Entity {
 
     public void setAggroModifier(float aggroModifier) {
         this.aggroModifier = aggroModifier;
+    }
+
+    public boolean hasBuffType(Class statusEffect) {
+        for (StatusEffect e : this.currentBuffs) {
+            if (e.getClass() == statusEffect) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean hasBuff(StatusEffect statusEffect) {
@@ -470,6 +511,16 @@ public abstract class EntityCharacter extends Entity {
 
     public void removeBuff(StatusEffect statusEffect) {
         if (this.currentBuffs.contains(statusEffect)) this.currentBuffs.removeElement(statusEffect);
+    }
+
+    public void removeBuffType(Class statusEffect) {
+        Vector<StatusEffect> markForRemoval = new Vector<>();
+        for (StatusEffect e : this.currentBuffs) {
+            if (e.getClass() == statusEffect) {
+                markForRemoval.addElement(e);
+            }
+        }
+        this.currentBuffs.removeAll(markForRemoval);
     }
 
     public void applyDebuff(StatusEffect statusEffect) {
@@ -671,6 +722,13 @@ public abstract class EntityCharacter extends Entity {
         if (this.resource > this.maximumResource) {
             this.resource = this.maximumResource;
         }
+        if (incomingHealingSpells.size() > 0) {
+            Vector<IncomingHealingAbility> mfr = new Vector<>();
+            for (IncomingHealingAbility iha : incomingHealingSpells) {
+                if (Instant.now().isAfter(iha.getTimeout())) mfr.addElement(iha);
+            }
+            incomingHealingSpells.removeAll(mfr);
+        }
     }
 
     public boolean tick() {
@@ -696,6 +754,32 @@ public abstract class EntityCharacter extends Entity {
             }
         }
         this.processAggro();
+    }
+
+    public double getIncomingHealing() {
+        double incomingHealing = 0;
+        for (IncomingHealingAbility iha : incomingHealingSpells) {
+            incomingHealing += iha.getAbility().getScaleFactor() * iha.getAbility().getOwner().getSpellPower();
+        }
+        return incomingHealing;
+    }
+
+    public void addIncomingHealingSpell(Ability a) {
+        this.incomingHealingSpells.addElement(new IncomingHealingAbility(a));
+    }
+
+    public void removeIncomingHealingSpell(EntityCharacter c) {
+        Vector<IncomingHealingAbility> mfr = new Vector<>();
+        for (IncomingHealingAbility iha : incomingHealingSpells) {
+            if (iha.getAbility().getOwner() == c) {
+                mfr.addElement(iha);
+            }
+        }
+        incomingHealingSpells.removeAll(mfr);
+    }
+
+    public double getExpectedHealth() {
+        return this.getIncomingHealing() + this.getHealth();
     }
 
     public void abilityHandling() {
@@ -756,6 +840,10 @@ public abstract class EntityCharacter extends Entity {
 
     public Ability getLastAbility() {
         return lastAbility;
+    }
+
+    public boolean isEnemy() {
+        return isEnemy;
     }
 
     private class Aggro implements Comparable<Aggro> {

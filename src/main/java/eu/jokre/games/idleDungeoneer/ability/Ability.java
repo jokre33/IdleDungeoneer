@@ -1,6 +1,7 @@
 package eu.jokre.games.idleDungeoneer.ability;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
+import eu.jokre.games.idleDungeoneer.Settings;
 import eu.jokre.games.idleDungeoneer.entity.EntityCharacter;
 
 import java.time.Duration;
@@ -17,6 +18,10 @@ import static eu.jokre.games.idleDungeoneer.ability.Ability.targetCategories.*;
  */
 
 public abstract class Ability {
+    public EntityCharacter getOwner() {
+        return owner;
+    }
+
     public enum damageTypes {
         PHYSICAL,   //Armor gets applied to Damage caused by the Ability
         MAGIC       //Magical resistance gets applied to Damage caused by this Ability
@@ -88,7 +93,7 @@ public abstract class Ability {
         abilityCategory = MELEE;
         targetCategory = ENEMIES;
         scaleFactor = 1;
-        cooldown = IdleDungeoneer.getSettings().getGlobalCooldown();
+        cooldown = Settings.globalCooldown;
         cost = 0;
         availableAfter = Instant.now().plusMillis(5000);
         hasCastTime = false;
@@ -214,13 +219,6 @@ public abstract class Ability {
 
     public void setOnGlobalCooldown(boolean onGlobalCooldown) {
         isOnGlobalCooldown = onGlobalCooldown;
-    }
-
-    public void triggerGlobalCooldown() {
-        Duration gcd = IdleDungeoneer.getSettings().getGlobalCooldown();
-        if (this.isOnGlobalCooldown() && isCooldownReadyIn(gcd)) {
-            this.availableAfter = Instant.now().plus(gcd);
-        }
     }
 
     public void enable() {

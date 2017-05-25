@@ -23,9 +23,12 @@ public class PlayerCharacterWarrior extends PlayerCharacter {
         this.abilities[0].setCooldown(weaponAttackSpeed);
         this.abilities[1].setCooldown(weapon2AttackSpeed);
         this.blockChance = 0.4;
-        this.dodgeChance = 0.4;
-        this.parryChance = 0.4;
-        this.blockAmount = 25000;
+        this.dodgeChance = 0.2;
+        this.parryChance = 0.2;
+        this.blockAmount = 10000;
         this.armorDamageReduction = 0.54;
+        this.maximumHealth = this.stamina * 5 * 2;
+        this.health = this.maximumHealth;
+        this.setTank(true);
     }
 }

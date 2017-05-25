@@ -1,5 +1,6 @@
 package eu.jokre.games.idleDungeoneer.entity;
 
+import eu.jokre.games.idleDungeoneer.renderHelper.Image;
 import org.joml.Vector2d;
 
 /**
@@ -8,8 +9,9 @@ import org.joml.Vector2d;
 
 public abstract class Entity {
     Vector2d position = new Vector2d();
+    Image texture;
 
-    public Entity(Vector2d position) {
+    Entity(Vector2d position) {
         this.position = position;
     }
 
@@ -19,5 +21,19 @@ public abstract class Entity {
 
     public Vector2d getPosition() {
         return position;
+    }
+
+    public void setTexture(Image texture) {
+        this.texture = texture;
+    }
+
+    public void setTexture(String imagePath) {
+        this.texture = new Image(imagePath);
+    }
+
+    public void draw() {
+        if (texture != null) {
+            texture.drawTexture(position);
+        }
     }
 }
