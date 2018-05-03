@@ -10,8 +10,8 @@ import static eu.jokre.games.idleDungeoneer.ability.Ability.damageTypes.MAGIC;
 /**
  * Created by jokre on 25-May-17.
  */
-public class AbilityHealArea extends Ability {
-    public AbilityHealArea(EntityCharacter owner) {
+public class AbilityPriestHealArea extends Ability {
+    public AbilityPriestHealArea(EntityCharacter owner) {
         super(owner);
         this.setRange(6);
         this.setCooldown(Duration.ZERO);
@@ -26,5 +26,35 @@ public class AbilityHealArea extends Ability {
         this.setAreaOfEffectRange(6.0f);
         this.setAreaOfEffectLocation(areaOfEffectLocations.CASTER);
         this.isOnGlobalCooldown = true;
+    }
+
+    @Override
+    public void onHit(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onCrit(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onParry(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onDodge(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onBlock(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onMiss(EntityCharacter target) {
+
     }
 }

@@ -1,12 +1,15 @@
 package eu.jokre.games.idleDungeoneer.entity;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
+import eu.jokre.games.idleDungeoneer.Inventory.Item;
 import eu.jokre.games.idleDungeoneer.ability.*;
 import org.joml.Vector2d;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Vector;
 
+import static eu.jokre.games.idleDungeoneer.ability.Ability.abilityHitCategories.ABILITY_CAST;
 import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.characterStates.CASTING;
 import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.characterStates.MOVING;
 import static eu.jokre.games.idleDungeoneer.entity.EntityCharacter.characterStates.WAITING;
@@ -20,16 +23,21 @@ public class PlayerCharacterPriest extends PlayerCharacter {
 
     public PlayerCharacterPriest(int level, Vector2d position, String name) {
         super(level, position, name);
+        this.armorClass = Item.armorClass.CLOTH;
+        this.characterClass = characterClasses.PRIEST;
         this.abilities[0].disable();
         this.moveToRange = 6;
-        this.addAbility(new AbilitySmite(this), 2);
-        this.addAbility(new AbilityHeal(this), 20);
-        this.addAbility(new AbilityHealArea(this), 19);
+        this.addAbility(new AbilityPriestSmite(this), 2);
+        this.addAbility(new AbilityPriestHeal(this), 20);
+        this.addAbility(new AbilityPriestHealArea(this), 19);
+        this.addAbility(new AbilityPriestRenew(this), 18);
         this.intelligence = 5500;
         this.spellPower = this.intelligence;
         this.maximumResource = this.intelligence * 5;
         this.resource = this.maximumResource;
         this.resourceRegeneration = this.maximumResource * 0.005;
+        this.inventory.generateSampleGear(145, false);
+        this.updateStats();
 
     }
 
@@ -77,7 +85,7 @@ public class PlayerCharacterPriest extends PlayerCharacter {
     }
 
     public boolean useAbility(PlayerCharacter t, Ability a) {
-        if (this.globalCooldownRemaining() <= 0) {
+        if (this.globalCooldownRemaining() <= 0 && this.getResource() >= a.getCost()) {
             if (a.hasCastTime()) {
                 if (this.characterStatus == WAITING) {
                     startCasting(t, a);
@@ -85,6 +93,7 @@ public class PlayerCharacterPriest extends PlayerCharacter {
                 }
             } else {
                 heal(t, a);
+                a.onCast(t);
                 return true;
             }
         }
@@ -112,11 +121,14 @@ public class PlayerCharacterPriest extends PlayerCharacter {
         Vector<PlayerCharacter> friendlyTargetsInRange = IdleDungeoneer.idleDungeoneer.getFriendlyTargetsInRange(this, castRange);
         for (PlayerCharacter p : IdleDungeoneer.idleDungeoneer.getTanks()) {
             if (!p.isDead() && p.getExpectedHealth() / p.getMaximumHealth() < 0.4) {
-                if (this.getDistance(p) <= castRange) {
+                if (this.getHitboxDistance(p) <= castRange) {
                     if (this.useAbility(p, this.abilities[20])) return;
                 } else {
                     this.focusTarget = p;
                 }
+            }
+            if (!p.isDead() && !p.hasBuff(StatusEffectBuffRenew.class, this)) {
+                if (this.useAbility(p, this.abilities[18])) return;
             }
         }
         if (getHealingTargets(false, this.getSpellPower() * this.abilities[19].getScaleFactor() * 0.75, friendlyTargetsInRange).size() > 2) {
@@ -139,41 +151,14 @@ public class PlayerCharacterPriest extends PlayerCharacter {
             if (this.useAbility(p, this.abilities[20])) return;
         }
         for (PlayerCharacter p : getHealingTargets(true, 1, friendlyTargetsInRange)) {
+            if (!p.isDead() && !p.hasBuff(StatusEffectBuffRenew.class, this)) {
+                if (this.useAbility(p, this.abilities[18])) return;
+            }
             if (this.resource / this.maximumResource > 0.9) {
                 if (this.useAbility(p, this.abilities[20])) return;
             }
         }
     }
-    /*
-    private Ability findBestHealingSpell(PlayerCharacter healingTarget) {
-        if (healingTarget != null) { //All Characters at 100% Health
-            double targetHealthMissing = this.healingTarget.getMaximumHealth() - this.healingTarget.getHealth();
-            double targetHealthPercent = this.healingTarget.getHealth() / this.healingTarget.getMaximumHealth();
-            double expectedTargetHealthMissing = this.healingTarget.getMaximumHealth() - this.healingTarget.getExpectedHealth();
-            double expectedTargetHealthPercent = this.healingTarget.getExpectedHealth() / this.healingTarget.getMaximumHealth();
-            for (int i = 2; i < abilityCap; i++) { //Skip Slot 0 and 1 because Auto Hits get handled separately.
-                if (this.abilities[i] != null && this.abilities[i].getTargetCategory() == Ability.targetCategories.FRIENDLIES) {
-                    if (this.abilities[i].cooldownReady() && this.resource >= this.abilities[i].getCost()) {
-                        if (characterStatus == WAITING || (characterStatus == MOVING && !this.abilities[i].hasCastTime())) {
-                            if (!this.abilities[i].isOnGlobalCooldown() || Instant.now().isAfter(this.globalCooldownUntil)) {
-                                double expectedHealing = this.abilities[i].getScaleFactor() * this.spellPower;
-                                if (expectedHealing < (0.75 * expectedTargetHealthMissing) || expectedTargetHealthPercent < 0.6) {
-                                    return this.abilities[i];
-                                }
-                                if (targetHealthPercent < 0.4) {
-                                    return this.abilities[i];
-                                }
-                                if ((this.resource / this.maximumResource) > 0.9 && expectedTargetHealthPercent < 1) {
-                                    return this.abilities[i];
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return null;
-    } */
 
     Ability chooseNextCast() {
         for (int i = 2; i < abilityCap; i++) { //Skip Slot 0 and 1 because Auto Hits get handled separately.
@@ -199,13 +184,12 @@ public class PlayerCharacterPriest extends PlayerCharacter {
                 target.removeIncomingHealingSpell(this);
             }
         }
-        ability.use(this);
         double healAmount = ability.getScaleFactor() * this.spellPower;
 
         if (ability.hasAreaOfEffect()) {
             if (ability.getAreaOfEffectLocation() == Ability.areaOfEffectLocations.TARGET) {
                 for (PlayerCharacter p : IdleDungeoneer.idleDungeoneer.getPlayerCharacters()) {
-                    if (target.getDistance(p) <= ability.getAreaOfEffectRange()) {
+                    if (target.getHitboxDistance(p) <= ability.getAreaOfEffectRange()) {
                         if (Math.random() < this.criticalStrikeChance) {
                             p.health += healAmount * 2;
                         } else {
@@ -217,7 +201,7 @@ public class PlayerCharacterPriest extends PlayerCharacter {
                 }
             } else {
                 for (PlayerCharacter p : IdleDungeoneer.idleDungeoneer.getPlayerCharacters()) {
-                    if (this.getDistance(p) <= ability.getAreaOfEffectRange()) {
+                    if (this.getHitboxDistance(p) <= ability.getAreaOfEffectRange()) {
                         healAmount = ability.getScaleFactor() * this.spellPower;
                         if (Math.random() < this.criticalStrikeChance) {
                             p.health += healAmount * 2;
@@ -256,7 +240,7 @@ public class PlayerCharacterPriest extends PlayerCharacter {
                 }
 
                 Ability nextCast = this.chooseNextCast();
-                if (nextCast != null) {
+                if (nextCast != null && this.getHitboxDistance(this.target) <= nextCast.getRange()) {
                     if (nextCast.hasCastTime()) {
                         this.characterStatus = CASTING;
                         this.castingAbility = nextCast;
@@ -287,7 +271,7 @@ public class PlayerCharacterPriest extends PlayerCharacter {
 
     public void ai() {
         if (this.characterStatus == CASTING) {
-            if (this.castingTarget == null || this.castingTarget.isDead()) {
+            if (this.castingTarget == null || this.castingTarget.isDead() || this.isDead()) {
                 this.characterStatus = WAITING;
             }
         }
@@ -318,5 +302,19 @@ public class PlayerCharacterPriest extends PlayerCharacter {
                 }
             }
         this.abilityHandling();
+    }
+
+    @Override
+    protected void abilityPriorityList() {
+        //TODO: implement Priest DPS Spells
+    }
+
+    public boolean tick() {
+        long timeSinceLastTick = ChronoUnit.MILLIS.between(this.lastTick, Instant.now());
+        boolean _super = super.tick();
+        if (this.characterStatus == WAITING && this.target != null) {
+            this.moveToEntity(this.target, timeSinceLastTick, moveToRange);
+        }
+        return _super;
     }
 }

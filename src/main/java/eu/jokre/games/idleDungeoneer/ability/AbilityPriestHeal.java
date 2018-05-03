@@ -11,8 +11,8 @@ import static eu.jokre.games.idleDungeoneer.ability.Ability.damageTypes.MAGIC;
 /**
  * Created by jokre on 22-May-17.
  */
-public class AbilityHeal extends Ability {
-    public AbilityHeal(EntityCharacter owner) {
+public class AbilityPriestHeal extends Ability {
+    public AbilityPriestHeal(EntityCharacter owner) {
         super(owner);
         this.setRange(6);
         this.setCooldown(Duration.ZERO);
@@ -29,11 +29,42 @@ public class AbilityHeal extends Ability {
     }
 
     public boolean hasCastTime() {
-        return !owner.hasBuffType(StatusEffectBuffInstantHeal.class) && hasCastTime;
+        return !owner.hasBuff(StatusEffectBuffInstantHeal.class) && hasCastTime;
     }
 
-    public void use(EntityCharacter caster) {
-        this.owner.removeBuffType(StatusEffectBuffInstantHeal.class);
-        super.use(caster);
+    @Override
+    public void onHit(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onCrit(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onParry(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onDodge(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onBlock(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onMiss(EntityCharacter target) {
+
+    }
+
+    @Override
+    protected void use() {
+        super.use();
+        this.owner.removeBuff(StatusEffectBuffInstantHeal.class);
     }
 }

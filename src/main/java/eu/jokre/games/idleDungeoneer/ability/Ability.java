@@ -2,7 +2,10 @@ package eu.jokre.games.idleDungeoneer.ability;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
 import eu.jokre.games.idleDungeoneer.Settings;
+import eu.jokre.games.idleDungeoneer.entity.Entity;
 import eu.jokre.games.idleDungeoneer.entity.EntityCharacter;
+import eu.jokre.games.idleDungeoneer.entity.Projectile;
+import org.joml.Vector2d;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -67,8 +70,6 @@ public abstract class Ability {
     protected abilityCategories abilityCategory;
     protected damageTypes damageType;
     protected targetCategories targetCategory;
-    protected statusEffectTargets statusEffectTarget;
-    protected Vector<abilityHitCategories> statusEffectApplicationCondition = new Vector<>();
 
     protected boolean isOnGlobalCooldown;   //Is the Ability affected by the Global Cooldown?
     protected boolean enabled;              //Is the Ability enabled?
@@ -77,8 +78,6 @@ public abstract class Ability {
     protected Duration castTime;
 
     protected double scaleFactor;           //The Multiplier of the Characters Spell or Attackpower or Weapon Damage this Ability does
-    protected boolean appliesStatusEffect;  //If this Ability leaves a Buff or Debuff on the Target
-    protected StatusEffect statusEffect;    //The Buff or Debuff that gets applied
 
     protected Duration cooldown;            //Length of the Cooldown this Ability applies.
     protected Instant availableAfter;       //Timestamp of when the Ability can next be cast.
@@ -86,6 +85,12 @@ public abstract class Ability {
 
     protected String name;
     protected float range;
+
+    protected boolean projectile = false;
+    protected boolean hastedCooldown = false;
+    protected float areaDamageModifier = 1.0f;
+    protected float projectileSpeed = 5.0f;
+    protected float projectileSize = 0.2f;
 
     public Ability(EntityCharacter owner) {
         this.owner = owner;
@@ -103,9 +108,15 @@ public abstract class Ability {
         areaOfEffectLocation = TARGET;
     }
 
-    public void use(EntityCharacter caster) {
-        this.availableAfter = Instant.now().plus(cooldown);
-        caster.useResource(this.getCost());
+    protected void use() {
+        if (this.hastedCooldown) {
+            double cooldown = this.cooldown.toMillis();
+            long hastedCooldown = Math.round(cooldown / (1 + owner.getHaste()));
+            this.availableAfter = Instant.now().plus(Duration.ofMillis(hastedCooldown));
+        } else {
+            this.availableAfter = Instant.now().plus(cooldown);
+        }
+        owner.useResource(this.getCost());
     }
 
     public boolean cooldownReady() {
@@ -124,26 +135,6 @@ public abstract class Ability {
         this.name = name;
     }
 
-    public statusEffectTargets getStatusEffectTarget() {
-        return statusEffectTarget;
-    }
-
-    public void setStatusEffectTarget(statusEffectTargets statusEffectTarget) {
-        this.statusEffectTarget = statusEffectTarget;
-    }
-
-    public Vector<abilityHitCategories> getStatusEffectApplicationCondition() {
-        return statusEffectApplicationCondition;
-    }
-
-    public void addStatusEffectApplicationCondition(abilityHitCategories statusEffectApplicationCondition) {
-        this.statusEffectApplicationCondition.addElement(statusEffectApplicationCondition);
-    }
-
-    public void removeStatusEffectApplicationCondition(abilityHitCategories statusEffectApplicationCondition) {
-        this.statusEffectApplicationCondition.removeElement(statusEffectApplicationCondition);
-    }
-
     public abilityCategories getAbilityCategory() {
         return abilityCategory;
     }
@@ -158,14 +149,6 @@ public abstract class Ability {
 
     public double getScaleFactor() {
         return scaleFactor;
-    }
-
-    public boolean appliesStatusEffect() {
-        return appliesStatusEffect;
-    }
-
-    public StatusEffect getStatusEffect() {
-        return statusEffect;
     }
 
     public Duration getCooldown() {
@@ -194,11 +177,6 @@ public abstract class Ability {
 
     public void setScaleFactor(double scaleFactor) {
         this.scaleFactor = scaleFactor;
-    }
-
-    public void setStatusEffect(StatusEffect statusEffect) {
-        this.statusEffect = statusEffect;
-        this.appliesStatusEffect = statusEffect != null;
     }
 
     public void setCooldown(Duration cooldown) {
@@ -274,4 +252,40 @@ public abstract class Ability {
         this.areaOfEffectRange = areaOfEffectRange;
         this.hasAreaOfEffect = areaOfEffectRange > 0;
     }
+
+    public boolean hasProjectile() {
+        return projectile;
+    }
+
+    public void setProjectile(boolean projectile) {
+        this.projectile = projectile;
+    }
+
+    public void createProjectile(EntityCharacter t) {
+        IdleDungeoneer.idleDungeoneer.createProjectile(new Projectile(new Vector2d(owner.getPosition().x, owner.getPosition().y), 0.2f, this, t, owner, this.projectileSpeed));
+    }
+
+    public float getAreaDamageModifier() {
+        return areaDamageModifier;
+    }
+
+    public void setAreaDamageModifier(float areaDamageModifier) {
+        this.areaDamageModifier = areaDamageModifier;
+    }
+
+    public void onCast(EntityCharacter target) {
+        this.use();
+    }
+
+    public abstract void onHit(EntityCharacter target);
+
+    public abstract void onCrit(EntityCharacter target);
+
+    public abstract void onParry(EntityCharacter target);
+
+    public abstract void onDodge(EntityCharacter target);
+
+    public abstract void onBlock(EntityCharacter target);
+
+    public abstract void onMiss(EntityCharacter target);
 }

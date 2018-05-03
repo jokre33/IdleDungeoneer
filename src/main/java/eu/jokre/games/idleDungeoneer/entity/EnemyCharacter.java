@@ -1,6 +1,7 @@
 package eu.jokre.games.idleDungeoneer.entity;
 
 import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
+import eu.jokre.games.idleDungeoneer.ability.Ability;
 import eu.jokre.games.idleDungeoneer.ability.AutoAttack;
 import org.joml.Vector2d;
 import org.joml.Vector2f;
@@ -30,10 +31,9 @@ public class EnemyCharacter extends EntityCharacter {
 
     double damageMod = 0;
     double healthMod = 0;
-    float size = 1.0f;
 
-    public EnemyCharacter(int level, float itemlevel, Vector2d position, String name, Classification classification) {
-        super(level, itemlevel, position, name, true);
+    public EnemyCharacter(int level, float itemlevel, Vector2d position, String name, Classification classification, float hitboxRadius) {
+        super(level, itemlevel, position, name, true, hitboxRadius);
         switch (classification) {
             case NORMAL:
                 damageMod = 0.6;
@@ -120,7 +120,12 @@ public class EnemyCharacter extends EntityCharacter {
         return !this.isDead();
     }
 
-    public float getSize() {
-        return size;
+    @Override
+    protected void abilityPriorityList() {
+        if (this.target != null) {
+            for (Ability a : abilities) {
+                if (a != null && a.getClass() != AutoAttack.class && useAbility(this.target, a)) return;
+            }
+        }
     }
 }

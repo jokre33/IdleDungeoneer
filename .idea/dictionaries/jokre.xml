@@ -2,6 +2,7 @@
   <dictionary name="jokre">
     <words>
       <w>cooldown</w>
+      <w>hitbox</w>
       <w>mana</w>
       <w>spellpower</w>
     </words>

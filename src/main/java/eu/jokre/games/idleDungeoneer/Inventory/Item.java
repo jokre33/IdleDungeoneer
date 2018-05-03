@@ -1,30 +1,34 @@
 package eu.jokre.games.idleDungeoneer.Inventory;
 
+import eu.jokre.games.idleDungeoneer.entity.EntityCharacter;
+
 import java.util.Vector;
 
 import static eu.jokre.games.idleDungeoneer.Inventory.Item.itemSlots.*;
+import static eu.jokre.games.idleDungeoneer.Inventory.Item.itemTypes.*;
+import static eu.jokre.games.idleDungeoneer.Inventory.Item.primaryStat.*;
 
 /**
  * Created by jokre on 21-May-17.
  */
 public class Item {
     public enum itemSlots {
-        HEAD(1),
-        SHOULDERS(2),
-        BACK(3),
-        CHEST(4),
-        WRISTS(5),
-        HANDS(6),
-        WAIST(7),
-        LEGS(8),
-        FEET(9),
-        NECK(10),
-        RING1(11),
-        RING2(12),
-        TRINKET1(13),
-        TRINKET2(14),
-        WEAPON1(15),
-        WEAPON2(16);
+        HEAD(0),
+        SHOULDERS(1),
+        BACK(2),
+        CHEST(3),
+        WRISTS(4),
+        HANDS(5),
+        WAIST(6),
+        LEGS(7),
+        FEET(8),
+        NECK(9),
+        RING1(10),
+        RING2(11),
+        TRINKET1(12),
+        TRINKET2(13),
+        WEAPON1(14),
+        WEAPON2(15);
 
         private int _value;
 
@@ -45,21 +49,21 @@ public class Item {
     }
 
     public enum itemTypes {
-        HELMET(1, 1.0f, 1.0f),
-        PAULDRONS(2, 0.8f, 0.8f),
-        CLOAK(3, 0.6f, 0.6f),
-        BODY_ARMOR(4, 1.0f, 1.0f),
-        BRACERS(5, 0.6f, 0.6f),
-        GLOVES(6, 0.8f, 0.8f),
-        BELT(7, 0.6f, 0.6f),
-        PANTS(8, 1.0f, 1.0f),
-        SHOES(9, 0.8f, 0.8f),
-        AMULET(10, 1.0f, 0.0f),
-        RING(11, 0.6f, 0.0f),
-        TRINKET(12, 1.1f, 1.1f),
-        WEAPON_1H(13, 1.0f, 0.0f),
-        WEAPON_2H(14, 2.0f, 0.0f),
-        SHIELD(15, 1.0f, 2.0f);
+        HELMET(0, 1.0f, 1.0f),
+        PAULDRONS(1, 0.8f, 0.8f),
+        CLOAK(2, 0.6f, 0.6f),
+        BODY_ARMOR(3, 1.0f, 1.0f),
+        BRACERS(4, 0.6f, 0.6f),
+        GLOVES(5, 0.8f, 0.8f),
+        BELT(6, 0.6f, 0.6f),
+        PANTS(7, 1.0f, 1.0f),
+        SHOES(8, 0.8f, 0.8f),
+        AMULET(9, 1.0f, 0.0f),
+        RING(10, 0.6f, 0.0f),
+        TRINKET(11, 0f, 0.0f), //----
+        WEAPON_1H(12, 1.0f, 0.0f),
+        WEAPON_2H(13, 2.0f, 0.0f),
+        SHIELD(14, 1.0f, 2.0f);
 
         private int _value;
         private float _statMult;
@@ -100,6 +104,7 @@ public class Item {
     public static final int itemLevelStatBase = 70;
     public static final int baseFullSetPrimary = 4167;
     public static final int baseFullSetStamina = 5208;
+    public static final double baseFullSetWeaponDPS = baseFullSetPrimary * 0.8;
     public static final int baseItemArmor = 543;
     public static final int baseItemPrimary = 365;
     public static final int baseItemStamina = 457;
@@ -121,16 +126,137 @@ public class Item {
         BLOCK
     }
 
+    public enum armorClass {
+        CLOTH(INTELLIGENCE, 0.2f),
+        LEATHER(AGILITY, 0.4f),
+        MAIL(AGILITY, 0.6f),
+        PLATE(STRENGTH, 1.0f);
+
+        private primaryStat _primary;
+        private float _mult;
+
+        armorClass(primaryStat p, float mult) {
+            this._primary = p;
+            this._mult = mult;
+        }
+
+        primaryStat getPrimaryStat() {
+            return this._primary;
+        }
+
+        float getArmorMultiplier() {
+            return this._mult;
+        }
+    }
+
     private int itemLevel;
     private itemTypes itemType;
+    private primaryStat primaryStat;
+    private secondaryStat secondaryStat1;
+    private secondaryStat secondaryStat2;
+    private armorClass armorClass;
 
-    public Item(int itemLevel, itemTypes type) {
+    private long primaryStatAmount;
+    private long staminaAmount;
+    private long secondaryStat1Amount;
+    private long secondaryStat2Amount;
+    private long armorAmount;
+
+    private long minDamage;
+    private long maxDamage;
+    private float swingTime;
+
+    public Item(int itemLevel, itemTypes type, secondaryStat secondaryStat1, secondaryStat secondaryStat2, armorClass armorClass) {
         this.itemLevel = itemLevel;
         this.itemType = type;
+        this.primaryStat = armorClass.getPrimaryStat();
+        this.secondaryStat1 = secondaryStat1;
+        this.secondaryStat2 = secondaryStat2;
+        this.armorClass = armorClass;
+
+        double itemLevelStatMultiplier = Math.pow(EntityCharacter.itemLevelScaling, (this.itemLevel - itemLevelStatBase) / EntityCharacter.itemLevelScalingPerXAmount);
+        double itemArmorMultiplier = itemLevelStatMultiplier * this.itemType.getArmorMultiplier() * this.armorClass.getArmorMultiplier();
+        double itemStatMultiplier = itemLevelStatMultiplier * this.itemType.getStatMultiplier();
+
+        this.primaryStatAmount = Math.round(baseItemPrimary * itemStatMultiplier);
+        this.secondaryStat1Amount = Math.round(baseItemSecondary1 * itemStatMultiplier);
+        this.secondaryStat2Amount = Math.round(baseItemSecondary2 * itemStatMultiplier);
+        this.staminaAmount = Math.round(baseItemStamina * itemStatMultiplier);
+        this.armorAmount = Math.round(baseItemArmor * itemArmorMultiplier);
+
+        switch (type) {
+            case WEAPON_1H:
+                this.swingTime = 2.0f;
+                this.minDamage = Math.round(this.swingTime * baseFullSetWeaponDPS * 0.9);
+                this.maxDamage = Math.round(this.swingTime * baseFullSetWeaponDPS * 1.1);
+                break;
+            case WEAPON_2H:
+                this.swingTime = 3.6f;
+                this.minDamage = Math.round(this.swingTime * baseFullSetWeaponDPS * 0.9);
+                this.maxDamage = Math.round(this.swingTime * baseFullSetWeaponDPS * 1.1);
+                break;
+            default:
+                break;
+        }
     }
 
     public Vector<itemSlots> getItemSlot() {
         return this.getItemSlot(this.getItemType());
+    }
+
+    public static Vector<itemTypes> getItemType(itemSlots slot) {
+        Vector<itemTypes> itemTypes = new Vector<>();
+        switch (slot) {
+            case HEAD:
+                itemTypes.addElement(HELMET);
+                break;
+            case SHOULDERS:
+                itemTypes.addElement(PAULDRONS);
+                break;
+            case BACK:
+                itemTypes.addElement(CLOAK);
+                break;
+            case CHEST:
+                itemTypes.addElement(BODY_ARMOR);
+                break;
+            case WRISTS:
+                itemTypes.addElement(BRACERS);
+                break;
+            case HANDS:
+                itemTypes.addElement(GLOVES);
+                break;
+            case WAIST:
+                itemTypes.addElement(BELT);
+                break;
+            case LEGS:
+                itemTypes.addElement(PANTS);
+                break;
+            case FEET:
+                itemTypes.addElement(SHOES);
+                break;
+            case NECK:
+                itemTypes.addElement(AMULET);
+                break;
+            case RING1:
+                itemTypes.addElement(RING);
+                break;
+            case RING2:
+                itemTypes.addElement(RING);
+                break;
+            case TRINKET1:
+                itemTypes.addElement(TRINKET);
+                break;
+            case TRINKET2:
+                itemTypes.addElement(TRINKET);
+                break;
+            case WEAPON1:
+                itemTypes.addElement(WEAPON_1H);
+                itemTypes.addElement(WEAPON_2H);
+            case WEAPON2:
+                itemTypes.addElement(WEAPON_1H);
+                itemTypes.addElement(SHIELD);
+        }
+        return itemTypes;
     }
 
     private Vector<itemSlots> getItemSlot(itemTypes itemType) {
@@ -193,45 +319,62 @@ public class Item {
     }
 
     public static int getItemSlotID(itemSlots itemSlot) {
-        switch (itemSlot) {
-            case HEAD:
-                return 1;
-            case SHOULDERS:
-                return 2;
-            case BACK:
-                return 3;
-            case CHEST:
-                return 4;
-            case WRISTS:
-                return 5;
-            case HANDS:
-                return 6;
-            case WAIST:
-                return 7;
-            case LEGS:
-                return 8;
-            case FEET:
-                return 9;
-            case NECK:
-                return 10;
-            case RING1:
-                return 11;
-            case RING2:
-                return 12;
-            case TRINKET1:
-                return 13;
-            case TRINKET2:
-                return 14;
-            case WEAPON1:
-                return 15;
-            case WEAPON2:
-                return 16;
-            default:
-                return 0;
-        }
+        return itemSlot.getValue();
     }
 
     public itemTypes getItemType() {
         return this.itemType;
+    }
+
+    public int getItemLevel() {
+        return itemLevel;
+    }
+
+    public Item.primaryStat getPrimaryStat() {
+        return primaryStat;
+    }
+
+    public secondaryStat getSecondaryStat1() {
+        return secondaryStat1;
+    }
+
+    public secondaryStat getSecondaryStat2() {
+        return secondaryStat2;
+    }
+
+    public long getPrimaryStatAmount() {
+        return primaryStatAmount;
+    }
+
+    public long getStaminaAmount() {
+        return staminaAmount;
+    }
+
+    public long getSecondaryStat1Amount() {
+        return secondaryStat1Amount;
+    }
+
+    public long getSecondaryStat2Amount() {
+        return secondaryStat2Amount;
+    }
+
+    public Item.armorClass getArmorClass() {
+        return armorClass;
+    }
+
+    public long getArmorAmount() {
+        return armorAmount;
+    }
+
+    public long getMinDamage() {
+        return minDamage;
+    }
+
+    public long getMaxDamage() {
+        return maxDamage;
+    }
+
+    public float getSwingTime() {
+        return swingTime;
     }
 }

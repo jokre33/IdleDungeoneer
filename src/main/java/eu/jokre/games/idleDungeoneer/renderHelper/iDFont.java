@@ -1,5 +1,6 @@
 package eu.jokre.games.idleDungeoneer.renderHelper;
 
+import eu.jokre.games.idleDungeoneer.IdleDungeoneer;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.stb.STBTTAlignedQuad;
 import org.lwjgl.stb.STBTTBakedChar;
@@ -20,7 +21,7 @@ import static org.lwjgl.system.MemoryStack.stackPush;
  */
 public class iDFont {
 
-    final int fontSize = 15;
+    final int fontSize = IdleDungeoneer.fontSize;
     final STBTTBakedChar.Buffer cdata;
     final int BITMAP_W = 512;
     final int BITMAP_H = 512;
@@ -30,8 +31,12 @@ public class iDFont {
         this.cdata = init(BITMAP_W, BITMAP_H);
     }
 
-    public void print2d(String text) {
-        renderText(this.cdata, this.BITMAP_W, this.BITMAP_H, text);
+    public void print2d(String text, float x, float y) {
+        renderText(this.cdata, this.BITMAP_W, this.BITMAP_H, text, x, y);
+    }
+
+    public void print2dRight(String text, float x, float y) {
+        print2d(text, x - getTextWidth(text), y);
     }
 
     private STBTTBakedChar.Buffer init(int BITMAP_W, int BITMAP_H) {
@@ -59,12 +64,23 @@ public class iDFont {
         return cdata;
     }
 
-    private void renderText(STBTTBakedChar.Buffer cdata, int BITMAP_W, int BITMAP_H, String text) {
+    public float getTextWidth(String text) {
+        float width = 0;
+        for (int i = 0; i < text.length(); i++) {
+            width += cdata.get(text.charAt(i) - 32).x1() - cdata.get(text.charAt(i) - 32).x0();
+        }
+
+        return width;
+    }
+
+    private void renderText(STBTTBakedChar.Buffer cdata, int BITMAP_W, int BITMAP_H, String text, float xOffset, float yOffset) {
         glEnable(GL_TEXTURE_2D);
         glBindTexture(GL_TEXTURE_2D, texID);
         try (MemoryStack stack = stackPush()) {
-            FloatBuffer x = stack.floats(0.0f);
-            FloatBuffer y = stack.floats(0.0f);
+            //FloatBuffer x = stack.floats(0.0f);
+            //FloatBuffer y = stack.floats(0.0f);
+            FloatBuffer x = stack.floats(xOffset);
+            FloatBuffer y = stack.floats(yOffset);
 
             STBTTAlignedQuad q = STBTTAlignedQuad.mallocStack(stack);
 

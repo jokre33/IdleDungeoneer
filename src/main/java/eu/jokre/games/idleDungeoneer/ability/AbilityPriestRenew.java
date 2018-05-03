@@ -5,24 +5,33 @@ import eu.jokre.games.idleDungeoneer.entity.EntityCharacter;
 import java.time.Duration;
 
 import static eu.jokre.games.idleDungeoneer.ability.Ability.abilityCategories.SPELL;
+import static eu.jokre.games.idleDungeoneer.ability.Ability.abilityHitCategories.ABILITY_CAST;
 import static eu.jokre.games.idleDungeoneer.ability.Ability.damageTypes.MAGIC;
-import static eu.jokre.games.idleDungeoneer.ability.Ability.targetCategories.ENEMIES;
 
 /**
- * Created by jokre on 25-May-17.
+ * Created by jokre on 28-May-17.
  */
-public class AbilityBoss1AoE extends Ability {
-    public AbilityBoss1AoE(EntityCharacter owner) {
+public class AbilityPriestRenew extends Ability {
+    public AbilityPriestRenew(EntityCharacter owner) {
         super(owner);
-        this.setRange(10);
-        this.setCooldown(Duration.ofSeconds(1));
+        this.setRange(6);
+        this.setCooldown(Duration.ZERO);
+        this.setCost(400);
         this.setScaleFactor(0.1);
         this.setDamageType(MAGIC);
         this.setAbilityCategory(SPELL);
-        this.setTargetCategory(ENEMIES);
-        this.setName("Raid AoE");
-        this.setAreaOfEffectLocation(areaOfEffectLocations.CASTER);
-        this.setAreaOfEffectRange(10.0f);
+        this.setTargetCategory(targetCategories.FRIENDLIES);
+        this.setCastTime(Duration.ZERO);
+        this.setName("Renew");
+        this.setOnGlobalCooldown(true);
+        this.setAreaOfEffectRange(0.0f);
+        this.isOnGlobalCooldown = true;
+    }
+
+    @Override
+    public void onCast(EntityCharacter target) {
+        super.onCast(target);
+        target.applyBuff(new StatusEffectBuffRenew(this.owner, target));
     }
 
     @Override

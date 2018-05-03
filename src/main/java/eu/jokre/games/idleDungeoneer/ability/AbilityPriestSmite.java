@@ -14,8 +14,8 @@ import static eu.jokre.games.idleDungeoneer.ability.Ability.targetCategories.ENE
 /**
  * Created by jokre on 22-May-17.
  */
-public class AbilitySmite extends Ability {
-    public AbilitySmite(EntityCharacter owner) {
+public class AbilityPriestSmite extends Ability {
+    public AbilityPriestSmite(EntityCharacter owner) {
         super(owner);
         this.setRange(6);
         this.setCooldown(Duration.ZERO);
@@ -28,9 +28,41 @@ public class AbilitySmite extends Ability {
         this.setName("Smite");
         this.setOnGlobalCooldown(true);
         this.setAreaOfEffectRange(0.0f);
-        this.setStatusEffect(new StatusEffectBuffInstantHeal());
-        this.setStatusEffectTarget(CASTER);
-        this.addStatusEffectApplicationCondition(ABILITY_CRIT);
         this.isOnGlobalCooldown = true;
+    }
+
+    @Override
+    public void onCast(EntityCharacter target) {
+        super.onCast(target);
+    }
+
+    @Override
+    public void onHit(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onCrit(EntityCharacter target) {
+        this.owner.applyBuff(new StatusEffectBuffInstantHeal(this.owner, this.owner));
+    }
+
+    @Override
+    public void onParry(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onDodge(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onBlock(EntityCharacter target) {
+
+    }
+
+    @Override
+    public void onMiss(EntityCharacter target) {
+
     }
 }
